@@ -1,15 +1,18 @@
 from typing import Dict, List, Annotated
 import numpy as np
 import os
-
+from LSH_index3 import LSHForest
+from binary_file import BinaryFile 
 DB_SEED_NUMBER = 42
 ELEMENT_SIZE = np.dtype(np.float32).itemsize
 DIMENSION = 70
-
+NUM_TREES=20
+MAX_DEPTH=35
 class VecDB:
     def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index.dat", new_db = True, db_size = None) -> None:
         self.db_path = database_file_path
         self.index_path = index_file_path
+        self.index = LSHForest(num_trees=NUM_TREES, max_depth=MAX_DEPTH, dim=DIMENSION)
         if new_db:
             if db_size is None:
                 raise ValueError("You need to provide the size of the database")
@@ -54,20 +57,24 @@ class VecDB:
     def get_all_rows(self) -> np.ndarray:
         # Take care this load all the data in memory
         num_records = self._get_num_records()
+        print(f"Number of records: {num_records}")
         vectors = np.memmap(self.db_path, dtype=np.float32, mode='r', shape=(num_records, DIMENSION))
         return np.array(vectors)
-    
-    def retrieve(self, query: Annotated[np.ndarray, (1, DIMENSION)], top_k = 5):
+    def retrieve(self, query: Annotated[np.ndarray, (1, DIMENSION)], top_k=5):
+           # Query the LSH Forest for candidate indices
+        candidates = self.index.query(query[0], m=top_k, c=2)  # Adjust 'c' to control the search scope
+        vectors = self.get_all_rows()  # Load all vectors for exact scoring
+        # Compute similarity scores for the candidates
         scores = []
-        num_records = self._get_num_records()
-        # here we assume that the row number is the ID of each vector
-        for row_num in range(num_records):
-            vector = self.get_one_row(row_num)
-            score = self._cal_score(query, vector)
-            scores.append((score, row_num))
-        # here we assume that if two rows have the same score, return the lowest ID
-        scores = sorted(scores, reverse=True)[:top_k]
-        return [s[1] for s in scores]
+        for candidate_id in candidates:
+            candidate_vector = vectors[candidate_id]
+            similarity = self._cal_score(query[0], candidate_vector)
+            scores.append((candidate_id, similarity))
+
+        # Sort by similarity and extract the top_k indices
+        scores.sort(key=lambda x: x[1], reverse=True)
+        top_indices = [idx for idx, _ in scores[:top_k]]
+        return top_indices
     
     def _cal_score(self, vec1, vec2):
         dot_product = np.dot(vec1, vec2)
@@ -77,7 +84,12 @@ class VecDB:
         return cosine_similarity
 
     def _build_index(self):
-        # Placeholder for index building logic
-        pass
+        """
+        Build the LSH Forest index from the database file.
+        """
+        vectors = self.get_all_rows()
+        for idx, vector in enumerate(vectors):
+            self.index.insert(vector, idx)
+
 
 

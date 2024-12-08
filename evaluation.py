@@ -14,6 +14,7 @@ class Result:
 
 def run_queries(db, np_rows, top_k, num_runs):
     results = []
+    print("num of runs: ", num_runs)
     for _ in range(num_runs):
         query = np.random.random((1,70))
         
@@ -24,6 +25,8 @@ def run_queries(db, np_rows, top_k, num_runs):
         
         tic = time.time()
         actual_ids = np.argsort(np_rows.dot(query.T).T / (np.linalg.norm(np_rows, axis=1) * np.linalg.norm(query)), axis= 1).squeeze().tolist()[::-1]
+        # print(db_ids)
+        # print(actual_ids)
         toc = time.time()
         np_run_time = toc - tic
         
@@ -38,6 +41,7 @@ def eval(results: List[Result]):
         run_time.append(res.run_time)
         # case for retrieving number not equal to top_k, score will be the lowest
         if len(set(res.db_ids)) != res.top_k or len(res.db_ids) != res.top_k:
+            print("wrong number of retrieved ids")
             scores.append( -1 * len(res.actual_ids) * res.top_k)
             continue
         score = 0
@@ -54,9 +58,9 @@ def eval(results: List[Result]):
 
 
 if __name__ == "__main__":
-    db = VecDB(db_size = 10**2)
+    db = VecDB(db_size = 10000)
 
     all_db = db.get_all_rows()
 
-    res = run_queries(db, all_db, 5, 10)
+    res = run_queries(db, all_db, 5, 5)
     print(eval(res))
