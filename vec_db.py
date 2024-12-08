@@ -1,7 +1,8 @@
 from typing import Dict, List, Annotated
 import numpy as np
 import os
-
+from IVF_Flat import IVF_Flat_Index
+from IVF_PQ import IVF_PQ_Index
 DB_SEED_NUMBER = 42
 ELEMENT_SIZE = np.dtype(np.float32).itemsize
 DIMENSION = 70
@@ -10,6 +11,7 @@ class VecDB:
     def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index.dat", new_db = True, db_size = None) -> None:
         self.db_path = database_file_path
         self.index_path = index_file_path
+        self.index=None
         if new_db:
             if db_size is None:
                 raise ValueError("You need to provide the size of the database")
@@ -45,7 +47,7 @@ class VecDB:
     def get_one_row(self, row_num: int) -> np.ndarray:
         # This function is only load one row in memory
         try:
-            offset = row_num * DIMENSION * ELEMENT_SIZE
+            offset = int(row_num) * int(DIMENSION) * int(ELEMENT_SIZE)
             mmap_vector = np.memmap(self.db_path, dtype=np.float32, mode='r', shape=(1, DIMENSION), offset=offset)
             return np.array(mmap_vector[0])
         except Exception as e:
@@ -58,16 +60,7 @@ class VecDB:
         return np.array(vectors)
     
     def retrieve(self, query: Annotated[np.ndarray, (1, DIMENSION)], top_k = 5):
-        scores = []
-        num_records = self._get_num_records()
-        # here we assume that the row number is the ID of each vector
-        for row_num in range(num_records):
-            vector = self.get_one_row(row_num)
-            score = self._cal_score(query, vector)
-            scores.append((score, row_num))
-        # here we assume that if two rows have the same score, return the lowest ID
-        scores = sorted(scores, reverse=True)[:top_k]
-        return [s[1] for s in scores]
+        return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=12,n_neighbors=top_k)
     
     def _cal_score(self, vec1, vec2):
         dot_product = np.dot(vec1, vec2)
@@ -78,6 +71,8 @@ class VecDB:
 
     def _build_index(self):
         # Placeholder for index building logic
-        pass
+        self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=100)
+        self.index.fit(self.get_all_rows())
+        self.index.save_index(self.index_path)
 
 

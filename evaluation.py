@@ -4,6 +4,8 @@ from vec_db import VecDB
 import time
 from dataclasses import dataclass
 from typing import List
+from memory_profiler import memory_usage
+from multiprocessing import Process, Queue
 
 @dataclass
 class Result:
@@ -14,14 +16,19 @@ class Result:
 
 def run_queries(db, np_rows, top_k, num_runs):
     results = []
-    for _ in range(num_runs):
+    for i in range(num_runs):
         query = np.random.random((1,70))
-        
+        print(i)
         tic = time.time()
+        queue=Queue()
         db_ids = db.retrieve(query, top_k)
         toc = time.time()
         run_time = toc - tic
-        
+        mem_before = max(memory_usage())
+        print(f"mem_before: {mem_before}")
+        mem =  memory_usage(proc=(db.retrieve, (query, top_k), {}), interval = 1e-3)
+        mem=max(mem) 
+        print(f"mem_after: {mem}")
         tic = time.time()
         actual_ids = np.argsort(np_rows.dot(query.T).T / (np.linalg.norm(np_rows, axis=1) * np.linalg.norm(query)), axis= 1).squeeze().tolist()[::-1]
         toc = time.time()
@@ -54,9 +61,9 @@ def eval(results: List[Result]):
 
 
 if __name__ == "__main__":
-    db = VecDB(db_size = 10**2)
+    db = VecDB(db_size =15000000)
 
     all_db = db.get_all_rows()
-
-    res = run_queries(db, all_db, 5, 10)
+    res = run_queries(db, all_db, 10, 5)
     print(eval(res))
+    
