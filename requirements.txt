@@ -1,2 +1,2 @@
 numpy
-memory-profiler
+scikit-learn

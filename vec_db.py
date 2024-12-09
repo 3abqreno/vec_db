@@ -1,30 +1,29 @@
 from typing import Dict, List, Annotated
 import numpy as np
 import os
-from IVF_Flat import IVF_Flat_Index
 from IVF_PQ import IVF_PQ_Index
 DB_SEED_NUMBER = 42
 ELEMENT_SIZE = np.dtype(np.float32).itemsize
 DIMENSION = 70
 
 class VecDB:
-    def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index.dat", new_db = True, db_size = None) -> None:
+    def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index.dat", new_db = False, db_size = None) -> None:
         self.db_path = database_file_path
         self.index_path = index_file_path
-        self.index=None
+        self.index=IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=30)
         if new_db:
             if db_size is None:
                 raise ValueError("You need to provide the size of the database")
             # delete the old DB file if exists
             if os.path.exists(self.db_path):
                 os.remove(self.db_path)
-            self.generate_database(db_size)
+        self.index.load_index(self.index_path,self.get_one_row)
     
     def generate_database(self, size: int) -> None:
         rng = np.random.default_rng(DB_SEED_NUMBER)
         vectors = rng.random((size, DIMENSION), dtype=np.float32)
         self._write_vectors_to_file(vectors)
-        self._build_index()
+        # self._build_index()
 
     def _write_vectors_to_file(self, vectors: np.ndarray) -> None:
         mmap_vectors = np.memmap(self.db_path, dtype=np.float32, mode='w+', shape=vectors.shape)
@@ -71,8 +70,9 @@ class VecDB:
 
     def _build_index(self):
         # Placeholder for index building logic
-        self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=100)
+        self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=30)
         self.index.fit(self.get_all_rows())
         self.index.save_index(self.index_path)
+        # self.index.load_index(self.index_path,self.get_one_row)
 
 

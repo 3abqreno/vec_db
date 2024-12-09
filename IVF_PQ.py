@@ -21,24 +21,10 @@ class IVF_PQ_Index:
         self.cluster_centers = None
         self.random_state=42
         self.inverted_index = {}
-
+        self.subvector_estimators_centers=np.empty((self.n_clusters,self.n_subvectors,self.n_clusters_per_subvector,self.dimension//self.n_subvectors))
         if dimension % n_subvectors != 0:
             raise ValueError("dimension needs to be a multiple of n_subvectors")
 
-        self.subvector_estimators = [
-            [
-                MiniBatchKMeans(
-                    n_clusters=self.n_clusters_per_subvector,
-                    init='random',
-                    max_iter=50,
-                    random_state=42,
-                    batch_size=1000
-                ) 
-                for _ in range(self.n_subvectors)
-            ]
-            for _ in range(self.n_clusters)
-        ]
-        logging.info(f"Created subvector estimators {self.subvector_estimators[0]!r}")
 
         self.is_trained = False
 
@@ -51,15 +37,33 @@ class IVF_PQ_Index:
         self.cluster_centers=kmeans.cluster_centers_
         #! separate labels for subclusters training
         label_indices = {label: np.where(labels == label)[0] for label in np.unique(labels)}
+        subvector_estimators = [
+            [
+                MiniBatchKMeans(
+                    n_clusters=self.n_clusters_per_subvector,
+                    init='random',
+                    max_iter=50,
+                    random_state=42,
+                    batch_size=1000
+                ) 
+                for _ in range(self.n_subvectors)
+            ]
+            for _ in range(self.n_clusters)
+        ]
+        logging.info(f"Created subvector estimators {subvector_estimators[0]!r}")
         #! train the subclusters and assign the codewords and create the inverted index
         for i in range(self.n_clusters):
             indices = label_indices[i]
-            self._train_subclusters(vectors[indices],self.subvector_estimators[i])
-            codewords = self._add(vectors[indices],self.subvector_estimators[i])
+            self._train_subclusters(vectors[indices],subvector_estimators[i])
+            self.subvector_estimators_centers[i]=np.array([estimator.cluster_centers_ for estimator in subvector_estimators[i]])
+            codewords = self._add(vectors[indices],self.subvector_estimators_centers[i])
             self.inverted_index[i] = (codewords, indices)
         self.is_trained = True
         
-
+    def _predict_kmeans(self,query, centers):
+        distances = np.linalg.norm(query[:, np.newaxis] - centers, axis=2)
+        predictions = np.argmin(distances, axis=1)
+        return predictions
     def _train_subclusters(self, vectors,estimators):
         for i in range(self.n_subvectors):
             #! to slice arrays
@@ -78,12 +82,12 @@ class IVF_PQ_Index:
             #! to slice arrays
             data_slicer=self.dimension//self.n_subvectors
             query = vectors[:, i * data_slicer : (i + 1) * data_slicer]
-            result[:, i] = estimator.predict(query)
+            result[:, i] = self._predict_kmeans(query, estimator)
 
         return result
     def _add(self, vectors,estimators):
         codewords = self._encode(vectors,estimators)
-        codewords = codewords.astype(np.uint16)
+        codewords = codewords.astype(np.uint8)
         return codewords
 
     def _subvector_distance(self, queries,codewords,cluster_index):
@@ -96,7 +100,7 @@ class IVF_PQ_Index:
             #! to slice arrays
             data_slicer=self.dimension//self.n_subvectors
             query = queries[:, i * data_slicer : (i + 1) * data_slicer]
-            centers = self.subvector_estimators[cluster_index][i].cluster_centers_  
+            centers = self.subvector_estimators_centers[cluster_index][i]
             distances_table[:, i, :] = euclidean_distances(query, centers, squared=True)
         #! calculate the distance between the query vectors and the codewords
         distances = np.zeros((queries.shape[0], len(codewords)), dtype=np.float32)
@@ -132,20 +136,21 @@ class IVF_PQ_Index:
     def save_index(self,file_name):
         with open(file_name, 'wb') as f:
             np.save(f, self.cluster_centers)
-            pickle.dump(self.inverted_index, f)
-            subvector_centers = [
-            [estimator.cluster_centers_ for estimator in estimators]
-            for estimators in self.subvector_estimators
-            ]
-            pickle.dump(subvector_centers, f)    
-    def load_index(self, file_name):
+            filtered_index = {key: value[1] for key, value in self.inverted_index.items() if isinstance(value, tuple)}
+            pickle.dump(filtered_index, f)
+            pickle.dump(self.subvector_estimators_centers, f)    
+    def load_index(self, file_name,get_row):
+        filtered_index = {}
         with open(file_name, 'rb') as f:
             self.cluster_centers = np.load(f)
-            self.inverted_index = pickle.load(f)
-            self.subvector_estimators = pickle.load(f)
+            filtered_index = pickle.load(f)
+            self.subvector_estimators_centers = pickle.load(f)
         self.n_clusters=self.cluster_centers.shape[0]
-        self.n_subvectors=len(self.subvector_estimators[0])
-        self.n_clusters_per_subvector=len(self.subvector_estimators[0][0].cluster_centers_)
+        self.n_subvectors=len(self.subvector_estimators_centers[0])
+        self.n_clusters_per_subvector=len(self.subvector_estimators_centers[0][0])
         self.dimension=self.cluster_centers.shape[1]
         self.n_bits=int(np.log2(self.n_clusters_per_subvector))
         self.is_trained = True
+        for label in filtered_index:
+            vectors = np.array([get_row(v) for v in filtered_index[label]])
+            self.inverted_index[label] = (self._add(vectors,self.subvector_estimators_centers[label]),filtered_index[label])
