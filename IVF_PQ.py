@@ -8,7 +8,8 @@ import os
 import gzip
 logging.basicConfig(level=logging.INFO)
 class IVF_PQ_Index:
-    def __init__(self, n_subvectors,n_bits, n_clusters,random_state=42,dimension=70,folder_path='index'):
+    def __init__(self, n_subvectors,n_bits, db_size,n_clusters,random_state=42,dimension=70,folder_path='index'):
+        self.db_size = db_size
         #! number of bits per subvector codeword
         self.n_bits = n_bits
         #! number of subvectors 
@@ -56,6 +57,7 @@ class IVF_PQ_Index:
         logging.info(f"Created subvector estimators {subvector_estimators[0]!r}")
         #! train the subclusters and assign the codewords and create the inverted index
         for i in range(self.n_clusters):
+            print(f"Training cluster {i}")
             indices = label_indices[i]
             self._train_subclusters(vectors[indices],subvector_estimators[i])
             self.subvector_estimators_centers[i]=np.array([estimator.cluster_centers_ for estimator in subvector_estimators[i]])
@@ -73,7 +75,7 @@ class IVF_PQ_Index:
             data_slicer=self.dimension//self.n_subvectors 
             estimator = estimators[i]
             subvectors = vectors[:, i * data_slicer : (i + 1) * data_slicer]
-            logging.info(f"Fitting KMeans for the {i+1}-th subvectors")
+            # logging.info(f"Fitting KMeans for the {i+1}-th subvectors")
             estimator.fit(subvectors)
 
     def _encode(self, vectors,estimators):
@@ -143,7 +145,8 @@ class IVF_PQ_Index:
                 indices = pickle.load(f)
             with gzip.open(os.path.join(self.folder_path,f'codewords_{cluster}.dat'), 'rb') as f:
                 codewords=pickle.load(f)
-            nearest_vector_indices=self._searchPQ(query_vectors=query_vector.reshape(1,-1),codewords=codewords,n_neighbors=n_neighbors*3,cluster_index=cluster).flatten()
+            n_neighbors_per_sub_cluster = n_neighbors*15 if self.db_size==10000000 else n_neighbors*20 
+            nearest_vector_indices=self._searchPQ(query_vectors=query_vector.reshape(1,-1),codewords=codewords,n_neighbors=n_neighbors_per_sub_cluster,cluster_index=cluster).flatten()
             
             new_similarities = np.array([cosine_similarity(query_vector, get_row(i)) for i in indices[nearest_vector_indices]]).squeeze()
             vectors = np.append(vectors,indices[nearest_vector_indices])
