@@ -4,9 +4,11 @@ from sklearn.cluster import KMeans, MiniBatchKMeans
 import pickle
 import logging
 from sklearn.metrics.pairwise import euclidean_distances
+import os
+import gzip
 logging.basicConfig(level=logging.INFO)
 class IVF_PQ_Index:
-    def __init__(self, n_subvectors,n_bits, n_clusters,random_state=42,dimension=70):
+    def __init__(self, n_subvectors,n_bits, n_clusters,random_state=42,dimension=70,folder_path='index'):
         #! number of bits per subvector codeword
         self.n_bits = n_bits
         #! number of subvectors 
@@ -16,29 +18,16 @@ class IVF_PQ_Index:
         #! dimension of the vectors
         self.dimension = dimension
         #! number of IVF clusters
-        self.n_clusters=n_clusters
+        self.n_clusters=np.uint16(n_clusters)
         #! IVF cluster centres
         self.cluster_centers = None
         self.random_state=42
         self.inverted_index = {}
-
+        self.subvector_estimators_centers=np.empty((self.n_clusters,self.n_subvectors,self.n_clusters_per_subvector,self.dimension//self.n_subvectors))
         if dimension % n_subvectors != 0:
             raise ValueError("dimension needs to be a multiple of n_subvectors")
 
-        self.subvector_estimators = [
-            [
-                MiniBatchKMeans(
-                    n_clusters=self.n_clusters_per_subvector,
-                    init='random',
-                    max_iter=50,
-                    random_state=42,
-                    batch_size=1000
-                ) 
-                for _ in range(self.n_subvectors)
-            ]
-            for _ in range(self.n_clusters)
-        ]
-        logging.info(f"Created subvector estimators {self.subvector_estimators[0]!r}")
+        self.folder_path = folder_path
 
         self.is_trained = False
 
@@ -51,15 +40,33 @@ class IVF_PQ_Index:
         self.cluster_centers=kmeans.cluster_centers_
         #! separate labels for subclusters training
         label_indices = {label: np.where(labels == label)[0] for label in np.unique(labels)}
+        subvector_estimators = [
+            [
+                MiniBatchKMeans(
+                    n_clusters=self.n_clusters_per_subvector,
+                    init='random',
+                    max_iter=50,
+                    random_state=42,
+                    batch_size=1000
+                ) 
+                for _ in range(self.n_subvectors)
+            ]
+            for _ in range(self.n_clusters)
+        ]
+        logging.info(f"Created subvector estimators {subvector_estimators[0]!r}")
         #! train the subclusters and assign the codewords and create the inverted index
         for i in range(self.n_clusters):
             indices = label_indices[i]
-            self._train_subclusters(vectors[indices],self.subvector_estimators[i])
-            codewords = self._add(vectors[indices],self.subvector_estimators[i])
+            self._train_subclusters(vectors[indices],subvector_estimators[i])
+            self.subvector_estimators_centers[i]=np.array([estimator.cluster_centers_ for estimator in subvector_estimators[i]])
+            codewords = self._add(vectors[indices],self.subvector_estimators_centers[i])
             self.inverted_index[i] = (codewords, indices)
         self.is_trained = True
         
-
+    def _predict_kmeans(self,query, centers):
+        distances = np.linalg.norm(query[:, np.newaxis] - centers, axis=2)
+        predictions = np.argmin(distances, axis=1)
+        return predictions
     def _train_subclusters(self, vectors,estimators):
         for i in range(self.n_subvectors):
             #! to slice arrays
@@ -78,12 +85,12 @@ class IVF_PQ_Index:
             #! to slice arrays
             data_slicer=self.dimension//self.n_subvectors
             query = vectors[:, i * data_slicer : (i + 1) * data_slicer]
-            result[:, i] = estimator.predict(query)
+            result[:, i] = self._predict_kmeans(query, estimator)
 
         return result
     def _add(self, vectors,estimators):
         codewords = self._encode(vectors,estimators)
-        codewords = codewords.astype(np.uint16)
+        codewords = codewords.astype(np.uint8)
         return codewords
 
     def _subvector_distance(self, queries,codewords,cluster_index):
@@ -96,7 +103,7 @@ class IVF_PQ_Index:
             #! to slice arrays
             data_slicer=self.dimension//self.n_subvectors
             query = queries[:, i * data_slicer : (i + 1) * data_slicer]
-            centers = self.subvector_estimators[cluster_index][i].cluster_centers_  
+            centers = self.subvector_estimators_centers[cluster_index][i]
             distances_table[:, i, :] = euclidean_distances(query, centers, squared=True)
         #! calculate the distance between the query vectors and the codewords
         distances = np.zeros((queries.shape[0], len(codewords)), dtype=np.float32)
@@ -114,7 +121,11 @@ class IVF_PQ_Index:
         return nearest_vector_indices
     def retreive(self,query_vector,cosine_similarity,get_row,n_clusters=3,n_neighbors=10):
         #! calculate the similarities between the query vector and the cluster centers
+        mmap=np.memmap(os.path.join(self.folder_path,'cluster_centers.dat'), dtype=np.float32, mode='r', shape=(self.n_clusters, self.dimension))
+        self.cluster_centers=mmap[:].reshape(self.n_clusters,self.dimension)
+        mmap.flush()
         similarities = np.array([cosine_similarity(query_vector, center) for center in self.cluster_centers]).squeeze()
+        del self.cluster_centers
         #! get the n nearest clusters
         nearest_clusters = np.argpartition(similarities, -n_clusters)[-n_clusters:]
         #! get nearest n vectors
@@ -129,23 +140,30 @@ class IVF_PQ_Index:
             similarities = np.append(similarities, new_similarities) 
         nearest_arrays = np.argpartition(similarities, -n_neighbors)[-n_neighbors:]
         return vectors[nearest_arrays]
-    def save_index(self,file_name):
-        with open(file_name, 'wb') as f:
-            np.save(f, self.cluster_centers)
-            pickle.dump(self.inverted_index, f)
-            subvector_centers = [
-            [estimator.cluster_centers_ for estimator in estimators]
-            for estimators in self.subvector_estimators
-            ]
-            pickle.dump(subvector_centers, f)    
-    def load_index(self, file_name):
-        with open(file_name, 'rb') as f:
-            self.cluster_centers = np.load(f)
+    def save_index(self):
+        folder_path=self.folder_path
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        mmap=np.memmap(os.path.join(folder_path,'cluster_centers.dat'), dtype=np.float32, mode='w+', shape=(self.n_clusters, self.dimension))
+        mmap[:]=self.cluster_centers
+        mmap.flush()
+        mmap=np.memmap(os.path.join(folder_path,'sub_cluster_centers.dat'), dtype=np.float32, mode='w+', shape=(self.n_clusters,self.n_subvectors,self.n_clusters_per_subvector,self.dimension//self.n_subvectors))
+        mmap[:]=self.subvector_estimators_centers
+        mmap.flush()
+        with gzip.open(os.path.join(folder_path,'inverted_index.dat'), 'wb') as f:
+            pickle.dump(self.inverted_index, f)       
+    def load_index(self):
+        folder_path=self.folder_path
+        self.n_clusters=os.path.getsize(os.path.join(folder_path,'cluster_centers.dat')) // (self.dimension * np.dtype(np.float32).itemsize)
+        mmap=np.memmap(os.path.join(folder_path,'sub_cluster_centers.dat'), dtype=np.float32, mode='r', shape=(self.n_clusters,self.n_subvectors,self.n_clusters_per_subvector,self.dimension//self.n_subvectors))
+        self.subvector_estimators_centers=mmap[:]
+        mmap.flush()
+        with gzip.open(os.path.join(folder_path,'inverted_index.dat'), 'rb') as f:
             self.inverted_index = pickle.load(f)
-            self.subvector_estimators = pickle.load(f)
-        self.n_clusters=self.cluster_centers.shape[0]
-        self.n_subvectors=len(self.subvector_estimators[0])
-        self.n_clusters_per_subvector=len(self.subvector_estimators[0][0].cluster_centers_)
+        # self.inverted_index = pickle.load(open(os.path.join(folder_path,'inverted_index.dat'), "rb"))
+        self.n_subvectors=len(self.subvector_estimators_centers[0])
+        self.n_clusters_per_subvector=len(self.subvector_estimators_centers[0][0])
         self.dimension=self.cluster_centers.shape[1]
         self.n_bits=int(np.log2(self.n_clusters_per_subvector))
         self.is_trained = True
+        

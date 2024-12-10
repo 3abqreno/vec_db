@@ -8,7 +8,7 @@ ELEMENT_SIZE = np.dtype(np.float32).itemsize
 DIMENSION = 70
 
 class VecDB:
-    def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index.dat", new_db = True, db_size = None) -> None:
+    def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index", new_db = True, db_size = None) -> None:
         self.db_path = database_file_path
         self.index_path = index_file_path
         self.index=None
@@ -71,8 +71,9 @@ class VecDB:
 
     def _build_index(self):
         # Placeholder for index building logic
-        self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=100)
+        self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=30)
         self.index.fit(self.get_all_rows())
-        self.index.save_index(self.index_path)
+        self.index.save_index()
+        self.index.load_index()
 
 
