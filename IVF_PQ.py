@@ -147,7 +147,7 @@ class IVF_PQ_Index:
                 codewords=pickle.load(f)
             n_neighbors_per_sub_cluster = (
                 n_neighbors*3 if self.db_size==1000000
-                else n_neighbors*20 if self.db_size==10000000 
+                else n_neighbors*25 if self.db_size==10000000 
                 else n_neighbors*30 if self.db_size==15000000
                 else n_neighbors*15
             )
