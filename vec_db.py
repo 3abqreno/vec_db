@@ -7,7 +7,7 @@ ELEMENT_SIZE = np.dtype(np.float32).itemsize
 DIMENSION = 70
 
 class VecDB:
-    def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index", new_db = False, db_size = None) -> None:
+    def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index", new_db = True, db_size = None) -> None:
         self.db_path = database_file_path
         self.index_path = index_file_path
         self.index=None
@@ -75,7 +75,7 @@ class VecDB:
         elif self._get_num_records() == 15000000:
             return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=90,n_neighbors=top_k)
         elif self._get_num_records() == 20000000:
-            return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=35,n_neighbors=top_k)
+            return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=40,n_neighbors=top_k)
     
     def _cal_score(self, vec1, vec2):
         dot_product = np.dot(vec1, vec2)
