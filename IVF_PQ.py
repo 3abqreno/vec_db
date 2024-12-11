@@ -148,8 +148,8 @@ class IVF_PQ_Index:
             n_neighbors_per_sub_cluster = (
                 n_neighbors*3 if self.db_size==1000000
                 else n_neighbors*15 if self.db_size==10000000 
-                else n_neighbors*20 if self.db_size==15000000
-                else n_neighbors*18
+                else n_neighbors*30 if self.db_size==15000000
+                else n_neighbors*15
             )
             nearest_vector_indices=self._searchPQ(query_vectors=query_vector.reshape(1,-1),codewords=codewords,n_neighbors=n_neighbors_per_sub_cluster,cluster_index=cluster).flatten()
             

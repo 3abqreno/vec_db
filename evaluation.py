@@ -61,9 +61,9 @@ def eval(results: List[Result]):
 
 
 if __name__ == "__main__":
-    db = VecDB(db_size =20000000)
-
+    db = VecDB(db_size =15000000)
     all_db = db.get_all_rows()
+    # db._build_index()
     res = run_queries(db, all_db, 10, 5)
     print(eval(res))
     
