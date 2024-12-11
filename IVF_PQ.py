@@ -145,7 +145,12 @@ class IVF_PQ_Index:
                 indices = pickle.load(f)
             with gzip.open(os.path.join(self.folder_path,f'codewords_{cluster}.dat'), 'rb') as f:
                 codewords=pickle.load(f)
-            n_neighbors_per_sub_cluster = n_neighbors*15 if self.db_size==10000000 else n_neighbors*20 
+            n_neighbors_per_sub_cluster = (
+                n_neighbors*3 if self.db_size==1000000
+                else n_neighbors*15 if self.db_size==10000000 
+                else n_neighbors*20 if self.db_size==15000000
+                else n_neighbors*18
+            )
             nearest_vector_indices=self._searchPQ(query_vectors=query_vector.reshape(1,-1),codewords=codewords,n_neighbors=n_neighbors_per_sub_cluster,cluster_index=cluster).flatten()
             
             new_similarities = np.array([cosine_similarity(query_vector, get_row(i)) for i in indices[nearest_vector_indices]]).squeeze()

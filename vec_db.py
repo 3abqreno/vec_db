@@ -19,7 +19,7 @@ class VecDB:
         elif self._get_num_records() == 15000000:
              self.index = IVF_PQ_Index(n_subvectors=5,n_bits=8,n_clusters=250,folder_path=self.index_path,db_size=self._get_num_records())
         elif self._get_num_records() == 20000000:
-             self.index = IVF_PQ_Index(n_subvectors=10,n_bits=8,n_clusters=200,folder_path=self.index_path,db_size=self._get_num_records())
+             self.index = IVF_PQ_Index(n_subvectors=7,n_bits=8,n_clusters=300,folder_path=self.index_path,db_size=self._get_num_records())
         if new_db:
             if db_size is None:
                 raise ValueError("You need to provide the size of the database")
@@ -76,7 +76,7 @@ class VecDB:
         elif self._get_num_records() == 15000000:
             return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=80,n_neighbors=top_k)
         elif self._get_num_records() == 20000000:
-            return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=35,n_neighbors=top_k)
+            return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=45,n_neighbors=top_k)
     
     def _cal_score(self, vec1, vec2):
         dot_product = np.dot(vec1, vec2)
@@ -94,7 +94,7 @@ class VecDB:
         elif self._get_num_records() == 15000000:
              self.index = IVF_PQ_Index(n_subvectors=5,n_bits=8,n_clusters=250,folder_path=self.index_path,db_size=self._get_num_records())
         elif self._get_num_records() == 20000000:
-             self.index = IVF_PQ_Index(n_subvectors=10,n_bits=8,n_clusters=200,folder_path=self.index_path,db_size=self._get_num_records())
+             self.index = IVF_PQ_Index(n_subvectors=7,n_bits=8,n_clusters=280,folder_path=self.index_path,db_size=self._get_num_records())
         self.index.fit(self.get_all_rows())
         self.index.save_index()
 
