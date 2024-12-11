@@ -10,7 +10,6 @@ class VecDB:
     def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index", new_db = False, db_size = None) -> None:
         self.db_path = database_file_path
         self.index_path = index_file_path
-        self.index=IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=30)
         self.index=None
         if self._get_num_records() == 1000000:
              self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=30,folder_path=self.index_path,db_size=self._get_num_records())
@@ -19,7 +18,7 @@ class VecDB:
         elif self._get_num_records() == 15000000:
              self.index = IVF_PQ_Index(n_subvectors=5,n_bits=8,n_clusters=250,folder_path=self.index_path,db_size=self._get_num_records())
         elif self._get_num_records() == 20000000:
-             self.index = IVF_PQ_Index(n_subvectors=7,n_bits=8,n_clusters=300,folder_path=self.index_path,db_size=self._get_num_records())
+             self.index = IVF_PQ_Index(n_subvectors=7,n_bits=8,n_clusters=280,folder_path=self.index_path,db_size=self._get_num_records())
         if new_db:
             if db_size is None:
                 raise ValueError("You need to provide the size of the database")
@@ -88,7 +87,7 @@ class VecDB:
     def _build_index(self):
         # Placeholder for index building logic
         if self._get_num_records() == 1000000 or self._get_num_records() == 100000:
-             self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=20,folder_path=self.index_path,db_size=self._get_num_records())
+             self.index = IVF_PQ_Index(n_subvectors=14,n_bits=8,n_clusters=30,folder_path=self.index_path,db_size=self._get_num_records())
         elif self._get_num_records() == 10000000:
              self.index = IVF_PQ_Index(n_subvectors=5,n_bits=8,n_clusters=150,folder_path=self.index_path,db_size=self._get_num_records())
         elif self._get_num_records() == 15000000:
