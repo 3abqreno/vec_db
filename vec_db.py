@@ -75,7 +75,7 @@ class VecDB:
         elif self._get_num_records() == 15000000:
             return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=90,n_neighbors=top_k)
         elif self._get_num_records() == 20000000:
-            return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=38,n_neighbors=top_k)
+            return self.index.retreive(query,self._cal_score,self.get_one_row,n_clusters=37,n_neighbors=top_k)
     
     def _cal_score(self, vec1, vec2):
         dot_product = np.dot(vec1, vec2)
