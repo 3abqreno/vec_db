@@ -1,9 +1,19 @@
 # Vector Database Indexing Project
+# Table of Contents
 
-## Overview
+- [Overview](#overview)
+- [Project Structure](#structure)
+- [System Constraints](#constraints)
+- [Usage](#usage)
+- [Additional Information](#info)
+- [Final Results](#results)
+- [Contributors](#contributors)
+
+---
+## 🌐 Overview <a name="overview"></a>
 This project focuses on building a semantic search engine using vectorized databases. The goal is to create efficient indexing mechanisms for large-scale vector databases, enabling fast and accurate retrieval of similar vectors. The project involves implementing and evaluating different indexing strategies, such as IVF (Inverted File Index) and PQ (Product Quantization), to handle databases of varying sizes (1M, 10M, 15M, and 20M rows).
 
-## Project Structure
+## 🏗️ Project Structure <a name="structure"></a>
 The project is organized into several key files and components:
 
 ### 1. **`vec_db.py`**
@@ -45,7 +55,7 @@ The project is organized into several key files and components:
      - `numpy`
      - `scikit-learn`
 
-## System Constraints
+## 🔒 System Constraints <a name="constraints"></a>
 The project has specific constraints for different database sizes:
 
 | DB Size | Peak RAM Usage (Retrieval) | Time Limit (Retrieval) | Min Accepted Score | Max Index Size |
@@ -55,7 +65,7 @@ The project has specific constraints for different database sizes:
 | 15M     | 50 MB                      | 8 sec                  | -5000              | 150 MB         |
 | 20M     | 50 MB                      | 10 sec                 | -5000              | 200 MB         |
 
-## Usage
+## 🚀 Usage <a name="usage"></a>
 1. **Clone the Repository**:
    ```bash
    git clone https://github.com/3abqreno/vec_db.git
@@ -72,11 +82,20 @@ The project has specific constraints for different database sizes:
     ```python
     def __init__(self, database_file_path = "saved_db.dat", index_file_path = "index", new_db = True, db_size = None) -> None:
     ```
-## Additional Information
+## ℹ️ Additional Information <a name="info"></a>
 1. The generated database is saved as a file named ```save_db.dat```
 2. The built index is composed of multiple files saved within the folder ```index```
 3. For implementation details you can check [ADB_Project__Final_Submission_Document.pdf](ADB_Project__Final_Submission_Document):
-## ✍️Contributors <a name = "contributors"></a>
+
+## 📊 Final Results <a name="results"></a>
+| DB Size | Accuracy | Time  |  Ram |
+|---------|----------|-------|------|
+| 1M      |  0.0    | 0.20   | 0.0  |
+| 10M     |  0.0    | 2.11   | 0.25 |
+| 15M     |  0.0    | 2.64   | 0.23 |
+| 20M     |  0.0B   | 6.21   | 0.25 |
+
+## ✍️ Contributors <a name = "contributors"></a>
 
 <table>
   <tr>
