@@ -85,7 +85,7 @@ The project has specific constraints for different database sizes:
 ## ℹ️ Additional Information <a name="info"></a>
 1. The generated database is saved as a file named ```save_db.dat```
 2. The built index is composed of multiple files saved within the folder ```index```
-3. For implementation details you can check [ADB_Project__Final_Submission_Document.pdf](ADB_Project__Final_Submission_Document):
+3. For implementation details you can check [ADB_Project__Final_Submission_Document.pdf](ADB_Project__Final_Submission_Document.pdf):
 
 ## 📊 Final Results <a name="results"></a>
 | DB Size | Accuracy | Time  |  Ram |
