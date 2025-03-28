@@ -93,7 +93,7 @@ The project has specific constraints for different database sizes:
 | 1M      |  0.0    | 0.20   | 0.0  |
 | 10M     |  0.0    | 2.11   | 0.25 |
 | 15M     |  0.0    | 2.64   | 0.23 |
-| 20M     |  0.0B   | 6.21   | 0.25 |
+| 20M     |  0.0    | 6.21   | 0.25 |
 
 ## ✍️ Contributors <a name = "contributors"></a>
 
